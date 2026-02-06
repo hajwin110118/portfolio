@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="ko" class="scroll-smooth" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hajun's Portfolio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Matter.js 물리 엔진 추가 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <!-- Poly-decomp for complex shapes if needed, but we will approximate -->
+    <script src="https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#111111',   
+                        accent: '#6A7EFC',    
+                        footer: '#ffffff',    // 바닥글 배경 흰색으로 변경 (이미지 참조)
+                    },
+                    fontFamily: {
+                        'paper-m': ['Paperlogy-5Medium', 'sans-serif'], 
+                        'paper-sb': ['Paperlogy-6SemiBold', 'sans-serif'],
+                        'paper-b': ['Paperlogy-7Bold', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Paperlogy 폰트 CDN 설정 */
+        @font-face {
+            font-family: 'Paperlogy-5Medium';
+            src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2');
+            font-weight: 500;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'Paperlogy-6SemiBold';
+            src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');
+            font-weight: 600;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'Paperlogy-7Bold';
+            src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');
+            font-weight: 700;
+            font-style: normal;
+        }
+
+        :root {
+            --thanks-size: clamp(64px, 15vw, 200px);
+            --load-block-color: #6A7EFC;
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --border-color: #e5e7eb;
+            --outline-color: #e5e7eb;
+            --timeline-line: #e5e7eb;
+        }
+
+        html[data-theme="dark"] {
+            --bg-color: #121212;
+            --text-color: #e5e7eb;
+            --border-color: rgb(26, 26, 26);
+            --outline-color: rgb(26, 26, 26);
+            --timeline-line: rgb(229, 231, 235);
+        }
+
+        body {
+            font-family: 'Paperlogy-5Medium', sans-serif;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            overflow-x: hidden;
+        }
+
+        .highlight-text {
+            color: #6A7EFC;
+            font-family: 'Paperlogy-7Bold', sans-serif;
+        }
+
+        .outline-box {
+            background-color: transparent;
+            border: 2px solid var(--outline-color);
+            transition: all 0.3s ease;
+        }
+        .outline-box:hover {
+            border-color: var(--outline-color);
+            transform: none;
+            box-shadow: none;
+        }
+
+        .thanks-title {
+            font-size: var(--thanks-size);
+        }
+
+        .tech-icon-wrapper {
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .timeline-line {
+            border-color: var(--timeline-line) !important;
+        }
+
+        .theme-toggle {
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+
+        .project-date {
+            color: #6b7280;
+            font-size: 0.75rem;
+            font-family: 'Paperlogy-6SemiBold', sans-serif;
+        }
+
+        .activity-role {
+            color: #4b5563;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .page-load .page-load-fade {
+            opacity: 0;
+            transform: translateY(6px);
+            animation: text-fade-up 0.9s ease forwards;
+            animation-delay: var(--load-delay, 0s);
+        }
+
+        .page-load .page-load-block {
+            position: relative;
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(12px);
+            clip-path: inset(0 100% 0 0);
+            animation: title-wipe 0.9s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+            animation-delay: var(--load-delay, 0s);
+        }
+
+        @keyframes text-fade-up {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes title-wipe {
+            0% { opacity: 0; transform: translateY(12px); clip-path: inset(0 100% 0 0); }
+            45% { opacity: 1; }
+            100% { opacity: 1; transform: translateY(0); clip-path: inset(0 0 0 0); }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tech-icon {
+            filter: grayscale(100%);
+            transition: filter 0.3s ease, transform 0.3s ease;
+        }
+        .tech-icon-wrapper:hover .tech-icon {
+            filter: grayscale(0%);
+            transform: scale(1.1);
+        }
+
+        /* Physics Canvas Container */
+        #physics-container {
+            width: 100%;
+            height: 500px;
+            position: relative;
+            overflow: hidden;
+            background-color: transparent;
+            border-bottom: 1px solid var(--border-color);
+        }
+        #physics-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .bg-white {
+            background-color: var(--bg-color) !important;
+        }
+
+        .border-gray-100,
+        .border-gray-200,
+        .border-gray-300,
+        .border-primary {
+            border-color: var(--border-color) !important;
+        }
+
+        html[data-theme="dark"] {
+            body {
+                background-color: #121212;
+                color: #e5e7eb;
+            }
+
+            #navbar {
+                background-color: rgba(18, 18, 18, 0.95) !important;
+                border-color: var(--border-color);
+            }
+
+            .border-white {
+                border-color: #121212 !important;
+            }
+
+            .bg-gray-100 {
+                background-color: #111827 !important;
+            }
+
+            .bg-gray-300 {
+                background-color: #334155 !important;
+            }
+
+            .text-gray-800 {
+                color: #e5e7eb !important;
+            }
+
+            .text-gray-700 {
+                color: #d1d5db !important;
+            }
+
+            .text-gray-600 {
+                color: #cbd5e1 !important;
+            }
+
+            .text-gray-500 {
+                color: #9ca3af !important;
+            }
+
+            .text-gray-400 {
+                color: #94a3b8 !important;
+            }
+
+            .text-black,
+            .text-primary {
+                color: #e5e7eb !important;
+            }
+
+            .outline-box {
+                border-color: var(--outline-color);
+                background-color: rgba(255, 255, 255, 0.02);
+            }
+
+            .project-date {
+                color: #9ca3af;
+            }
+
+            .activity-role {
+                color: #cbd5e1;
+            }
+
+            #physics-container {
+                border-bottom: 1px solid var(--border-color);
+            }
+        }
+    </style>
+</head>
+<body class="page-load">
+
+    <!-- 네비게이션 -->
+    <nav class="fixed w-full z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100" id="navbar">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="#" class="font-paper-b text-2xl tracking-tight text-primary hover:text-accent transition-colors">HAJUN.</a>
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex space-x-8 font-paper-sb text-sm">
+                    <a href="#about" class="hover:text-accent transition-colors">About</a>
+                    <a href="#skills" class="hover:text-accent transition-colors">Skills</a>
+                    <a href="#journey" class="hover:text-accent transition-colors">Journey</a>
+                    <a href="#projects" class="hover:text-accent transition-colors">Projects</a>
+                    <a href="#contact" class="hover:text-accent transition-colors">Contact</a>
+                </div>
+                <button id="theme-toggle" class="theme-toggle px-3 py-1.5 rounded-full text-xs font-paper-sb transition-colors" type="button">Dark Mode</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 히어로 섹션 -->
+    <header class="min-h-[80vh] flex flex-col justify-center items-center px-6 pt-20 relative bg-white">
+        <div class="text-center max-w-4xl reveal active">
+            <h1 class="text-4xl md:text-5xl font-paper-b tracking-tight mb-8 leading-tight page-load-block" style="--load-delay: 0s;">
+                HELLO.<br>
+                <span class="text-accent">I'M HAJUN!</span>
+            </h1>
+            <p class="text-base md:text-xl font-paper-m text-gray-800 leading-relaxed break-keep max-w-2xl mx-auto page-load-fade" style="--load-delay: 0.2s;">
+                안녕하세요 저는 <span class="highlight-text">Full Stack Developer</span> 하준입니다.<br>
+                저는 CREW CONSOLE KOREA에서 <span class="highlight-text">Site Manager</span>를 맡고 있고,<br>
+                교육부 지정 제3권역 <span class="highlight-text">정보보호영재교육원</span>을 수료했습니다.
+            </p>
+        </div>
+        
+        <div class="absolute bottom-10 animate-bounce">
+            <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+            </svg>
+        </div>
+    </header>
+
+    <!-- About 섹션 -->
+    <section id="about" class="py-24 px-6 bg-white border-t border-gray-100">
+        <div class="max-w-6xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
+                <div class="reveal">
+                    <h2 class="text-accent font-paper-b text-sm tracking-widest mb-3 uppercase">Who I Am</h2>
+                    <h3 class="text-3xl font-paper-b mb-6">Introduction</h3>
+                    <p class="font-paper-m text-gray-700 leading-8 text-lg break-keep">
+                        저는 중학교를 중퇴하고 영재교육원을 재원하며 새로운 도전을 준비하고 CREW CONSOLE KOREA에서 Full Stack Developer로 활동하고, OVERFLOW에서 암호학, 리버싱, 바이너리 분석, Write-up 작성을 담당하고 있습니다.
+                    </p>
+                </div>
+                <div class="outline-box p-8 rounded-xl reveal delay-100">
+                    <ul class="space-y-6">
+                        <li class="flex flex-col border-b border-gray-200 pb-4">
+                            <span class="font-paper-sb text-gray-500 text-sm mb-1">Name</span>
+                            <span class="font-paper-b text-xl">정하준 (Hajun Jung)</span>
+                        </li>
+                        <li class="flex flex-col border-b border-gray-200 pb-4">
+                            <span class="font-paper-sb text-gray-500 text-sm mb-1">Role</span>
+                            <span class="font-paper-b text-xl">Full Stack Developer</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Skills 섹션 -->
+    <section id="skills" class="py-24 px-6 bg-white border-t border-gray-100">
+        <div class="max-w-6xl mx-auto">
+            <div class="mb-16 reveal">
+                <h2 class="text-accent font-paper-b text-sm tracking-widest mb-3 uppercase">Capability</h2>
+                <h3 class="text-3xl font-paper-b">Tech Stack</h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
+                <div class="reveal">
+                    <h4 class="font-paper-b text-2xl mb-8 flex items-center">Programming</h4>
+                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/cplusplus/cplusplus-original.svg" alt="C++" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">C++</span>
+                        </div>
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nodejs/nodejs-original.svg" alt="Node.js" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">Node.js</span>
+                        </div>
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg" alt="Python" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">Python</span>
+                        </div>
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/flutter/flutter-original.svg" alt="Flutter" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">Flutter</span>
+                        </div>
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/swift/swift-original.svg" alt="Swift" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">Swift</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="reveal delay-100">
+                    <h4 class="font-paper-b text-2xl mb-8 flex items-center">Stack & Tools</h4>
+                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/firebase/firebase-plain.svg" alt="Firebase" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">Firebase</span>
+                        </div>
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/git/git-original.svg" alt="Git" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">Git</span>
+                        </div>
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/docker/docker-original.svg" alt="Docker" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">Docker</span>
+                        </div>
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/amazonwebservices/amazonwebservices-original-wordmark.svg" alt="AWS" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">AWS</span>
+                        </div>
+                        <div class="tech-icon-wrapper flex flex-col items-center gap-2 p-4 outline-box rounded-lg">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/googlecloud/googlecloud-original.svg" alt="GCP" class="w-10 h-10 tech-icon">
+                            <span class="font-paper-sb text-xs">GCP</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Journey 섹션 -->
+    <section id="journey" class="py-24 px-6 bg-white border-t border-gray-100">
+        <div class="max-w-6xl mx-auto">
+            <div class="mb-16 reveal">
+                <h2 class="text-accent font-paper-b text-sm tracking-widest mb-3 uppercase">History</h2>
+                <h3 class="text-3xl font-paper-b">My Journey</h3>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                <!-- 교육 -->
+                <div class="reveal">
+                    <h4 class="font-paper-b text-xl mb-8 pb-2 border-b-2 border-primary inline-block">Education</h4>
+                    <div class="space-y-8 border-l-2 border-gray-200 pl-6 relative timeline-line">
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-accent border-4 border-white"></div>
+                            <span class="text-accent font-paper-b text-sm">2026 (지원중)</span>
+                            <p class="font-paper-sb text-lg mt-1">부경대학교 정보보호영재교육원</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2025</span>
+                            <p class="font-paper-m text-lg mt-1">대구대학교 정보보호영재교육원 수료</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2025</span>
+                            <p class="font-paper-m text-lg mt-1">동신중학교 중퇴</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2024</span>
+                            <p class="font-paper-m text-lg mt-1">부산광역시교육청 정보영재교육원 중퇴</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2023</span>
+                            <p class="font-paper-m text-lg mt-1">명장초등학교 졸업</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2023</span>
+                            <p class="font-paper-m text-lg mt-1">동래교육지원청 정보영재교육원 수료</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2022</span>
+                            <p class="font-paper-m text-lg mt-1">동래교육지원청 정보영재교육원 수료</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 상장 -->
+                <div class="reveal delay-100">
+                    <h4 class="font-paper-b text-xl mb-8 pb-2 border-b-2 border-primary inline-block">Awards</h4>
+                    <div class="space-y-8 border-l-2 border-gray-200 pl-6 relative timeline-line">
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-accent border-4 border-white"></div>
+                            <span class="text-accent font-paper-b text-sm">2025. 10</span>
+                            <p class="font-paper-sb text-lg mt-1">한국산업단지공단 해킹 메일 아이디어 경진대회 우수상</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2024. 08</span>
+                            <p class="font-paper-m text-lg mt-1">인덕대학교 정보처리전문가 은상</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2024. 01</span>
+                            <p class="font-paper-m text-lg mt-1">동래영재교육원 학업 우수상</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2023. 10</span>
+                            <p class="font-paper-m text-lg mt-1">국제 로봇 청소년 연맹 최우수상</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2023. 08</span>
+                            <p class="font-paper-m text-lg mt-1">초등로봇교육연구회 미래공학 대상</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2023. 07</span>
+                            <p class="font-paper-m text-lg mt-1">인덕대학교 c언어 알고리즘 마스터 장려상</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2023. 07</span>
+                            <p class="font-paper-m text-lg mt-1">인덕대학교 정보처리전문가 동상</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2023. 07</span>
+                            <p class="font-paper-m text-lg mt-1">인덕대학교 주니어코드마스터 장려상</p>
+                        </div>
+                         <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2022. 01</span>
+                            <p class="font-paper-m text-lg mt-1">명장초등학교 정보과학 부문 표창장</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 대외활동 -->
+                <div class="reveal delay-200">
+                    <h4 class="font-paper-b text-xl mb-8 pb-2 border-b-2 border-primary inline-block">Activities</h4>
+                    <div class="space-y-8 border-l-2 border-gray-200 pl-6 relative timeline-line">
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-accent border-4 border-white"></div>
+                            <span class="text-accent font-paper-b text-sm">2025. 11</span>
+                            <h5 class="font-paper-sb text-lg mt-1">카이스트 IP CEO 10팀</h5>
+                            <p class="activity-role">Product Manager</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2024. 11</span>
+                            <h5 class="font-paper-sb text-lg mt-1">동신중학교 AI 윤리팀</h5>
+                            <p class="activity-role">EXHIBITOR</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2024. 09</span>
+                            <h5 class="font-paper-sb text-lg mt-1">2024 창의융합 한마당 - 상상위에 GREEN</h5>
+                            <p class="activity-role">EXHIBITOR</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2024. 09</span>
+                            <h5 class="font-paper-sb text-lg mt-1">K-ICT WEEK in BUSAN 2024</h5>
+                            <p class="activity-role">EXHIBITOR</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2024. 09</span>
+                            <h5 class="font-paper-sb text-lg mt-1">영재교육원 아두이노 하이패스 출석 시스템</h5>
+                            <p class="activity-role">EXHIBITOR</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2023. 08</span>
+                            <h5 class="font-paper-sb text-lg mt-1">초등로봇교육연구회 건물 내 자율주행 카트</h5>
+                            <p class="activity-role">EXHIBITOR</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2023. 07</span>
+                            <h5 class="font-paper-sb text-lg mt-1">영재교육원 3D 모델링 산출물 개발</h5>
+                            <p class="activity-role">EXHIBITOR</p>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-gray-300 border-4 border-white"></div>
+                            <span class="text-gray-500 font-paper-sb text-sm">2022. 07</span>
+                            <h5 class="font-paper-sb text-lg mt-1">영재교육원 게임 산출물 개발</h5>
+                            <p class="activity-role">EXHIBITOR</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Projects 섹션 -->
+    <section id="projects" class="py-24 px-6 bg-white border-t border-gray-100">
+        <div class="max-w-6xl mx-auto">
+            <div class="mb-16 reveal">
+                <h2 class="text-accent font-paper-b text-sm tracking-widest mb-3 uppercase">Portfolio</h2>
+                <h3 class="text-3xl font-paper-b">CREW CONSOLE KOREA Projects</h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Project Card 1: CCK PROJECT ZERO -->
+                <article class="outline-box rounded-xl overflow-hidden group reveal bg-white">
+                    <div class="p-8 h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <h4 class="font-paper-b text-2xl group-hover:text-accent transition-colors">CCK PROJECT ZERO</h4>
+                            <span class="project-date">2025.12 -</span>
+                        </div>
+                        <p class="text-gray-700 font-paper-m mb-6 flex-grow">CCK의 채팅 플랫폼 Front-end Development Manager.</p>
+                        <div class="flex flex-wrap gap-3 mt-auto">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/flutter/flutter-original.svg" class="w-6 h-6" alt="Flutter" title="Flutter">
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Project Card 2: CCK SOLE -->
+                <article class="outline-box rounded-xl overflow-hidden group reveal delay-100 bg-white">
+                    <div class="p-8 h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <h4 class="font-paper-b text-2xl group-hover:text-accent transition-colors">CCK SOLE</h4>
+                            <span class="project-date">2025.10 -</span>
+                        </div>
+                        <p class="text-gray-700 font-paper-m mb-6 flex-grow">CCK의 디스코드, 카카오톡 봇 Back-end Development Manager.</p>
+                        <div class="flex flex-wrap gap-3 mt-auto">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg" class="w-6 h-6" alt="Python">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/docker/docker-original.svg" class="w-6 h-6" alt="Docker">
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Project Card 3: CCK CON -->
+                <article class="outline-box rounded-xl overflow-hidden group reveal bg-white">
+                    <div class="p-8 h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <h4 class="font-paper-b text-2xl group-hover:text-accent transition-colors">CCK CON</h4>
+                            <span class="project-date">2025.09 -</span>
+                        </div>
+                        <p class="text-gray-700 font-paper-m mb-6 flex-grow">CCK의 구인구직, 외주 플랫폼 Front-end Development Manager.</p>
+                        <div class="flex flex-wrap gap-3 mt-auto">
+                            <span class="font-paper-b text-xs border border-gray-300 px-2 py-1 rounded flex items-center">html/css</span>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Project Card 4: CCK Workspace -->
+                <article class="outline-box rounded-xl overflow-hidden group reveal delay-100 bg-white">
+                    <div class="p-8 h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <h4 class="font-paper-b text-2xl group-hover:text-accent transition-colors">CCK 워크스페이스</h4>
+                            <span class="project-date">2026.01 -</span>
+                        </div>
+                        <p class="text-gray-700 font-paper-m mb-6 flex-grow">CCK의 업무 플랫폼 Full Stack Development Manager.</p>
+                        <div class="flex flex-wrap gap-3 mt-auto">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg" class="w-6 h-6" alt="Python">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/docker/docker-original.svg" class="w-6 h-6" alt="Docker">
+                            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/fastapi/fastapi-original.svg" class="w-6 h-6" alt="FastAPI">
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="projects" class="py-24 px-6 bg-white border-t border-gray-100">
+        <div class="max-w-6xl mx-auto">
+            <div class="mb-16 reveal">
+                <h2 class="text-accent font-paper-b text-sm tracking-widest mb-3 uppercase">Portfolio</h2>
+                <h3 class="text-3xl font-paper-b">Education Projects</h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Project Card 1: 대구대학교 프로젝트 -->
+                <article class="outline-box rounded-xl overflow-hidden group reveal bg-white">
+                    <div class="p-8 h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <h4 class="font-paper-b text-2xl group-hover:text-accent transition-colors">한국산업단지공단<br> 해킹메일 아이디어 경진대회</h4>
+                            <span class="project-date">2025.10 -</span>
+                        </div>
+                        <p class="text-gray-700 font-paper-m mb-6 flex-grow">산업통상자원부 사칭해킹 이메일 아이디어.</p>
+                        <div class="flex flex-wrap gap-3 mt-auto">
+                            <span class="font-paper-b text-xs border border-gray-300 px-2 py-1 rounded flex items-center">canva로 보기</span>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Project Card 2: CCK SOLE -->
+                <article class="outline-box rounded-xl overflow-hidden group reveal delay-100 bg-white">
+                    <div class="p-8 h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <h4 class="font-paper-b text-2xl group-hover:text-accent transition-colors">카이스트 IP CEO<br>AI 드론 제품 개발 프로젝트</h4>
+                            <span class="project-date">2025.11 -</span>
+                        </div>
+                        <p class="text-gray-700 font-paper-m mb-6 flex-grow">카이스트 IP CEO 단체전 프로젝트.</p>
+                        <div class="flex flex-wrap gap-3 mt-auto">
+                            <span class="font-paper-b text-xs border border-gray-300 px-2 py-1 rounded flex items-center">canva로 보기</span>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Project Card 3: CCK CON -->
+                <article class="outline-box rounded-xl overflow-hidden group reveal bg-white">
+                    <div class="p-8 h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <h4 class="font-paper-b text-2xl group-hover:text-accent transition-colors">카이스트 IP CEO 제출용<br>CON 사업기획서</h4>
+                            <span class="project-date">2025.09 -</span>
+                        </div>
+                        <p class="text-gray-700 font-paper-m mb-6 flex-grow">CCK의 구인구직, 외주 플랫폼.</p>
+                        <div class="flex flex-wrap gap-3 mt-auto">
+                            <span class="font-paper-b text-xs border border-gray-300 px-2 py-1 rounded flex items-center">canva로 보기</span>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Project Card 4: CCK Workspace -->
+                <article class="outline-box rounded-xl overflow-hidden group reveal delay-100 bg-white">
+                    <div class="p-8 h-full flex flex-col">
+                        <div class="flex justify-between items-start mb-4">
+                            <h4 class="font-paper-b text-2xl group-hover:text-accent transition-colors">준비중!</h4>
+                            <span class="project-date">2026.01 -</span>
+                        </div>
+                        <p class="text-gray-700 font-paper-m mb-6 flex-grow">준비중이에요. 다음에봐요 :)</p>
+                        <div class="flex flex-wrap gap-3 mt-auto">
+                            <span class="font-paper-b text-xs border border-gray-300 px-2 py-1 rounded flex items-center">canva로 보기</span>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- Physics & Contact Section (Footer) -->
+    <div id="contact-wrapper" class="w-full bg-white relative">
+        <!-- Physics Canvas -->
+        <div id="physics-container"></div>
+
+        <!-- Contact Content Area -->
+        <section id="contact" class="px-6 pb-24 bg-white text-black relative z-10">
+            <div class="max-w-7xl mx-auto">
+                
+                <!-- Main Contact Row -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center py-12 border-b border-gray-200 mb-16">
+                    <h3 class="text-3xl font-paper-m mb-6 md:mb-0">Contact</h3>
+                    <div class="flex items-center gap-4">
+                        <!-- Social Icons -->
+                        <a href="https://discord.gg/KUgXtTGhA2" class="w-12 h-12 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors">
+                            <!-- Discord Icon -->
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Footer Bottom Layout -->
+                <div class="flex flex-col lg:flex-row justify-between items-end">
+                    <!-- Huge Text -->
+                    <h1 class="thanks-title leading-none font-paper-b tracking-tighter mb-12 lg:mb-0 -ml-2">
+                        Thanks.
+                    </h1>
+
+                    <!-- Links Columns -->
+                    <div class="flex gap-16 lg:pb-4 text-sm font-paper-m">
+                        <div class="flex flex-col gap-3">
+                            <span class="font-paper-b mb-1">Navigation</span>
+                            <a href="#about" class="hover:text-accent">About</a>
+                            <a href="#skills" class="hover:text-accent">Skill</a>
+                            <a href="#journey" class="hover:text-accent">Journey</a>
+                            <a href="#projects" class="hover:text-accent">Projects</a>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <span class="font-paper-b mb-1">Other teams and product areas</span>
+                            <a href="https://crew-console.com" class="hover:text-accent" target="_blank" rel="noopener noreferrer">CREW CONSOLE KOREA</a>
+                            <a href="https://overflow.crew-console.com" class="hover:text-accent" target="_blank" rel="noopener noreferrer">OVERFLOW</a>
+                            <a href="https://gdg.community.dev/gdg-busan/" class="hover:text-accent" target="_blank" rel="noopener noreferrer">GDG BUSAN</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <footer class="mt-12 text-gray-400 text-xs font-paper-m">
+                <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center border-t border-gray-200 pt-8">
+                    <div class="flex gap-4">
+                        <a>hajun@crew-console.com</a>
+                    </div>
+                    <p class="mt-4 md:mt-0">&copy; 2025 Hajun Jung. All rights reserved.</p>
+                </div>
+            </footer>
+        </section>
+    </div>
+
+    <!-- 스크립트: 스크롤 애니메이션 및 Matter.js -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Theme Toggle ---
+            const themeToggle = document.getElementById('theme-toggle');
+            const root = document.documentElement;
+            const storedTheme = localStorage.getItem('theme');
+            const initialTheme = storedTheme || 'dark';
+
+            const applyTheme = (theme) => {
+                root.setAttribute('data-theme', theme);
+                if (themeToggle) {
+                    themeToggle.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+                }
+            };
+
+            applyTheme(initialTheme);
+
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    const nextTheme = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                    localStorage.setItem('theme', nextTheme);
+                    applyTheme(nextTheme);
+                });
+            }
+
+            // --- Reveal Animations ---
+            const revealElements = document.querySelectorAll('.reveal');
+            const revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                    }
+                });
+            }, { threshold: 0.1 });
+            revealElements.forEach(el => revealObserver.observe(el));
+
+            // --- Navbar Scroll ---
+            const navbar = document.getElementById('navbar');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 50) {
+                    navbar.classList.add('shadow-sm');
+                    navbar.classList.add('bg-white/95');
+                } else {
+                    navbar.classList.remove('shadow-sm');
+                    navbar.classList.remove('bg-white/95');
+                }
+            });
+
+            // --- Matter.js Physics Simulation ---
+            const initPhysics = () => {
+                const Engine = Matter.Engine,
+                      Render = Matter.Render,
+                      Runner = Matter.Runner,
+                      Bodies = Matter.Bodies,
+                      Composite = Matter.Composite,
+                      Mouse = Matter.Mouse,
+                      MouseConstraint = Matter.MouseConstraint,
+                      Events = Matter.Events;
+
+                // Create engine
+                const engine = Engine.create();
+                const world = engine.world;
+
+                // Get container dimensions
+                const container = document.getElementById('physics-container');
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+
+                // Create renderer
+                const render = Render.create({
+                    element: container,
+                    engine: engine,
+                    options: {
+                        width: width,
+                        height: height,
+                        background: 'transparent',
+                        wireframes: false,
+                        pixelRatio: window.devicePixelRatio
+                    }
+                });
+
+                // --- Create Custom SVG Shapes (Approximated) ---
+                
+                // Helper to generate textures with text
+                function createTextTexture(width, height, color, text, type = 'rect', rotation = 0) {
+                    const c = document.createElement('canvas');
+                    c.width = width;
+                    c.height = height;
+                    const ctx = c.getContext('2d');
+                    
+                    ctx.translate(width/2, height/2);
+                    // ctx.rotate(rotation * Math.PI / 180); // Rotation handled by body
+
+                    // Draw Shape
+                    ctx.fillStyle = color;
+                    if (type === 'rect') {
+                        // Rounded rect
+                        const r = height/2;
+                        ctx.beginPath();
+                        ctx.roundRect(-width/2, -height/2, width, height, r);
+                        ctx.fill();
+                    } else if (type === 'circle') {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, width/2, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (type === 'hex') {
+                        ctx.beginPath();
+                        for (let i = 0; i < 6; i++) {
+                            ctx.lineTo((width/2) * Math.cos(i * 2 * Math.PI / 6), (width/2) * Math.sin(i * 2 * Math.PI / 6));
+                        }
+                        ctx.fill();
+                    } else if (type === 'cloud') {
+                        // Simple cloud approximation
+                        ctx.beginPath();
+                        ctx.arc(-width/4, 0, height/2, 0, Math.PI * 2);
+                        ctx.arc(width/4, 0, height/2, 0, Math.PI * 2);
+                        ctx.arc(0, -height/4, height/2, 0, Math.PI * 2);
+                        ctx.arc(0, height/4, height/2, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (type === 'flower') {
+                        // Simple flower approximation
+                        ctx.beginPath();
+                         for (let i = 0; i < 4; i++) {
+                             ctx.rotate(Math.PI / 2);
+                             ctx.ellipse(0, height/3, width/6, height/3, 0, 0, 2 * Math.PI);
+                         }
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(0,0, width/4, 0, Math.PI*2);
+                        ctx.fill();
+                    } else if (type === 'pillow') {
+                         ctx.beginPath();
+                         // Superellipse-ish
+                         ctx.moveTo(-width/2 + 20, -height/2);
+                         ctx.lineTo(width/2 - 20, -height/2);
+                         ctx.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + 20);
+                         ctx.lineTo(width/2, height/2 - 20);
+                         ctx.quadraticCurveTo(width/2, height/2, width/2 - 20, height/2);
+                         ctx.lineTo(-width/2 + 20, height/2);
+                         ctx.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - 20);
+                         ctx.lineTo(-width/2, -height/2 + 20);
+                         ctx.quadraticCurveTo(-width/2, -height/2, -width/2 + 20, -height/2);
+                         ctx.fill();
+                    }
+
+                    // Draw Text
+                    if (text) {
+                        ctx.fillStyle = '#000000'; // Black text
+                        ctx.font = '600 14px "Paperlogy-6SemiBold", sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(text, 0, 0);
+                    }
+                    
+                    return c.toDataURL();
+                }
+
+                const bodies = [];
+
+                // 1. Join our Discord Community (Green Pill)
+                const pillW = 240, pillH = 50;
+                bodies.push(Bodies.rectangle(width * 0.3, -100, pillW, pillH, {
+                    angle: Math.PI / 6,
+                    render: { sprite: { texture: createTextTexture(pillW, pillH, '#37F586', '') }}
+                }));
+
+                 // 2. Yellow Hexagon
+                bodies.push(Bodies.polygon(width * 0.1, -300, 6, 80, {
+                    render: { sprite: { texture: createTextTexture(160, 160, '#F4F338', '', 'hex') }}
+                }));
+
+                // 3. Blue Circle
+                bodies.push(Bodies.circle(width * 0.5, -400, 70, {
+                    render: { sprite: { texture: createTextTexture(140, 140, '#839BFF', '', 'circle') }}
+                }));
+
+                 // 4. Pink Pillow
+                 bodies.push(Bodies.rectangle(width * 0.7, -200, 140, 140, {
+                    angle: -Math.PI / 8,
+                    chamfer: { radius: 20 },
+                    render: { sprite: { texture: createTextTexture(140, 140, '#FFBAFA', '', 'pillow') }}
+                }));
+
+                // 5. Orange Flower (Approximated as circle for physics)
+                bodies.push(Bodies.circle(width * 0.2, -500, 75, {
+                    render: { sprite: { texture: createTextTexture(160, 160, '#FF9356', '', 'flower') }}
+                }));
+
+                // 6. Lime Cloud (Approximated as circle/polygon)
+                 bodies.push(Bodies.circle(width * 0.8, -600, 80, {
+                    render: { sprite: { texture: createTextTexture(180, 160, '#D5F15F', '', 'cloud') }}
+                }));
+
+                 // 7. Small vertical green pill "Become a Trusted Tester"
+                 bodies.push(Bodies.rectangle(width * 0.15, -100, 50, 200, {
+                    render: { sprite: { texture: createTextTexture(50, 200, '#37F586', '') }} // No text for vertical simplified
+                 }));
+
+
+                // Add boundaries
+                let floor = Bodies.rectangle(width / 2, height + 60, width, 120, { isStatic: true, render: { visible: false } });
+                let leftWall = Bodies.rectangle(-60, height / 2, 120, height * 4, { isStatic: true, render: { visible: false } });
+                let rightWall = Bodies.rectangle(width + 60, height / 2, 120, height * 4, { isStatic: true, render: { visible: false } });
+
+                Composite.add(world, [...bodies, floor, leftWall, rightWall]);
+
+                // Add mouse control
+                const mouse = Mouse.create(render.canvas);
+                const mouseConstraint = MouseConstraint.create(engine, {
+                    mouse: mouse,
+                    constraint: {
+                        stiffness: 0.2,
+                        render: { visible: false }
+                    }
+                });
+                Composite.add(world, mouseConstraint);
+                render.mouse = mouse;
+
+                // Run
+                Render.run(render);
+                const runner = Runner.create();
+                Runner.run(runner, engine);
+
+                // Resize handler
+                const resizeScene = () => {
+                    const newWidth = container.clientWidth;
+                    const newHeight = container.clientHeight;
+
+                    render.canvas.width = newWidth;
+                    render.canvas.height = newHeight;
+                    render.options.width = newWidth;
+                    render.options.height = newHeight;
+                    render.bounds.min.x = 0;
+                    render.bounds.min.y = 0;
+                    render.bounds.max.x = newWidth;
+                    render.bounds.max.y = newHeight;
+
+                    Composite.remove(world, [floor, leftWall, rightWall]);
+                    floor = Bodies.rectangle(newWidth / 2, newHeight + 60, newWidth, 120, { isStatic: true, render: { visible: false } });
+                    leftWall = Bodies.rectangle(-60, newHeight / 2, 120, newHeight * 4, { isStatic: true, render: { visible: false } });
+                    rightWall = Bodies.rectangle(newWidth + 60, newHeight / 2, 120, newHeight * 4, { isStatic: true, render: { visible: false } });
+                    Composite.add(world, [floor, leftWall, rightWall]);
+                };
+
+                window.addEventListener('resize', resizeScene);
+            };
+
+            initPhysics();
+        });
+    </script>
+</body>
+</html>
